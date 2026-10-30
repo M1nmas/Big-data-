@@ -1,0 +1,6 @@
+"Status_Code","Class","Requests","Percent"
+"200","2xx Success",136776,91.18
+"304","3xx Redirection",10063,6.71
+"302","3xx Redirection",2154,1.44
+"404","4xx Client Error",1005,0.67
+"403","4xx Client Error",2,0

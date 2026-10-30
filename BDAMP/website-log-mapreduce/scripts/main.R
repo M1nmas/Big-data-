@@ -36,13 +36,32 @@ source(file.path(SCRIPT_DIR, "reducer.R"))
 source(file.path(SCRIPT_DIR, "analysis.R"))
 source(file.path(SCRIPT_DIR, "visualizer.R"))
 
+open_output_directory <- function(output_dir) {
+  output_path <- normalizePath(output_dir, mustWork = TRUE)
+
+  if (.Platform$OS.type == "windows") {
+    result <- shell.exec(output_path)
+  } else if (Sys.info()[["sysname"]] == "Darwin") {
+    result <- system2("open", shQuote(output_path))
+  } else {
+    result <- system2("xdg-open", shQuote(output_path))
+  }
+
+  if (!identical(result, 0L) && !is.null(result)) {
+    warning("Could not open output directory: ", output_path)
+  }
+
+  invisible(output_path)
+}
+
 run_website_log_analysis <- function(
   log_file    = NULL,
   client_csv  = NULL,
   chunk_size  = 50000L,
   max_records = 150000L,
-  output_dir  = file.path(PROJECT_DIR, "output"),
-  plot_dir    = file.path(PROJECT_DIR, "plots")
+  output_dir  = file.path(PROJECT_DIR, "..", "analysis_outputs"),
+  plot_dir    = file.path(PROJECT_DIR, "..", "analysis_outputs"),
+  open_output = TRUE
 ) {
   if (is.null(log_file)) {
     candidates <- c(
@@ -139,6 +158,10 @@ run_website_log_analysis <- function(
   export_analysis_results(analysis_report, output_dir)
   generate_all_plots(analysis_report, plot_dir)
   print_console_summary(analysis_report)
+
+  if (isTRUE(open_output)) {
+    open_output_directory(output_dir)
+  }
   
   return(invisible(list(
     aggregated_data = global_reduced,

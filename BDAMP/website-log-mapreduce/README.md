@@ -14,7 +14,7 @@ Analyzing massive web server logs (ranging from 160 MB to 3.26+ GB) poses signif
 - **Secondary Reducer Combiner**: Intermediate chunk outputs are merged deterministically using a multi-chunk combiner.
 - **Data Enrichment**: Integrated IP-to-hostname dictionary resolution using `client_hostname.csv`.
 - **Interactive Dashboard**: Decoupled Shiny dashboard for interactive KPI exploration and filtering.
-- **Publication-Ready Outputs**: Automatically exports CSV summaries and high-resolution ggplot2 charts.
+- **Publication-Ready Outputs**: Automatically exports CSV summaries and displays ggplot2 charts in the active R graphics device.
 
 ---
 
@@ -32,7 +32,7 @@ website-log-mapreduce/
 │   ├── analysis.R           # Statistical rankings, KPI calculation, anomaly flags & CSV export
 │   ├── visualizer.R         # High-resolution ggplot2 visualization generation
 │   └── main.R               # Master execution pipeline
-├── output/                   # Auto-generated CSV reports
+├── output/                   # Legacy output location
 │   ├── kpi_summary.csv
 │   ├── top_10_urls.csv
 │   ├── top_10_ips.csv
@@ -41,7 +41,7 @@ website-log-mapreduce/
 │   ├── top_404_errors.csv
 │   ├── hourly_traffic.csv
 │   └── anomaly_indicators.csv
-├── plots/                    # Auto-generated chart images (.png)
+├── plots/                    # Legacy chart location
 │   ├── plot_top_urls.png
 │   ├── plot_top_ips.png
 │   ├── plot_status_codes.png
@@ -55,13 +55,23 @@ website-log-mapreduce/
 └── report.md                 # Complete academic project report & viva questions
 ```
 
+The current pipeline writes generated CSV reports to the parent
+`BDAMP/analysis_outputs/` directory. Charts are displayed in the active R
+graphics device and are not written as PNG files. The `output/` and `plots/`
+directories contain earlier generated results and are retained for reference.
+
 ---
 
 ## 3. How to Run the Project
 
 ### Prerequisites
 - R (version 4.0 or later).
-- Recommended packages: `ggplot2`, `shiny`, `data.table` (fallback to base R is supported if packages are missing).
+- Recommended packages: `ggplot2`, `gridExtra`, `shiny`, `data.table` (fallback to base R is supported if packages are missing).
+
+Install the plotting packages once from the VS Code R terminal if needed:
+```r
+install.packages(c("ggplot2", "gridExtra"))
+```
 
 ### Step 1: Run the Automated Unit Tests
 Verify all parsing, edge cases, mapping, and chunk merging:
@@ -71,11 +81,19 @@ Verify all parsing, edge cases, mapping, and chunk merging:
 *Expected Result:* `12 PASSED, 0 FAILED`.
 
 ### Step 2: Run the Main MapReduce Analysis Pipeline
-Executes chunk streaming, MapReduce aggregation, CSV export, and chart generation:
+Executes chunk streaming, MapReduce aggregation, CSV export, and chart display:
 ```powershell
-& "C:\Program Files\R\R-4.6.1\bin\Rscript.exe" "scripts/main.R"
+source("scripts/main.R")
+run_website_log_analysis()
 ```
-*(By default, this analyzes `access.log` in 50,000-line chunks and outputs directly to `output/` and `plots/`).*
+Run these commands in the VS Code R extension (or an interactive R terminal)
+so the plots appear together in the VS Code plot viewer as a two-column grid.
+By default, the pipeline
+analyzes `access.log` in 50,000-line chunks and writes CSV tables to
+`../analysis_outputs/`.
+
+To avoid opening the output folder, call
+`run_website_log_analysis(open_output = FALSE)`.
 
 ### Step 3: Launch the Interactive Shiny Dashboard
 ```powershell

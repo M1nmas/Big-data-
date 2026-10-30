@@ -1,13 +1,12 @@
 # Plot generation functions for log metrics
 
 generate_all_plots <- function(analysis_res, plot_dir) {
-  if (!dir.exists(plot_dir)) dir.create(plot_dir, recursive = TRUE)
-  
   has_ggplot2 <- requireNamespace("ggplot2", quietly = TRUE)
   
   if (has_ggplot2) {
     library(ggplot2)
-    cat("Generating charts using ggplot2 ...\n")
+    plots <- list()
+    cat("Displaying charts using ggplot2 in a grid ...\n")
     
     # 1. Top 10 URLs
     top_urls_df <- analysis_res$top_urls
@@ -31,8 +30,7 @@ generate_all_plots <- function(analysis_res, plot_dir) {
           plot.title = element_text(face = "bold", size = 13),
           axis.text.y = element_text(size = 9, face = "bold")
         )
-      ggsave(file.path(plot_dir, "plot_top_urls.png"), p1, width = 9, height = 5.5, dpi = 150)
-      cat("  [+] Saved: plot_top_urls.png\n")
+      plots[[length(plots) + 1L]] <- p1
     }
     
     # 2. Status codes
@@ -59,8 +57,7 @@ generate_all_plots <- function(analysis_res, plot_dir) {
         ) +
         theme_minimal(base_size = 11) +
         theme(plot.title = element_text(face = "bold", size = 13))
-      ggsave(file.path(plot_dir, "plot_status_codes.png"), p2, width = 8, height = 5, dpi = 150)
-      cat("  [+] Saved: plot_status_codes.png\n")
+      plots[[length(plots) + 1L]] <- p2
     }
     
     # 3. Hourly traffic
@@ -83,8 +80,7 @@ generate_all_plots <- function(analysis_res, plot_dir) {
           plot.title = element_text(face = "bold", size = 13),
           axis.text.x = element_text(angle = 45, hjust = 1, size = 8)
         )
-      ggsave(file.path(plot_dir, "plot_traffic_trends.png"), p3, width = 10, height = 5, dpi = 150)
-      cat("  [+] Saved: plot_traffic_trends.png\n")
+      plots[[length(plots) + 1L]] <- p3
     }
     
     # 4. Top IPs
@@ -110,8 +106,7 @@ generate_all_plots <- function(analysis_res, plot_dir) {
           plot.title = element_text(face = "bold", size = 13),
           axis.text.y = element_text(size = 9, face = "bold")
         )
-      ggsave(file.path(plot_dir, "plot_top_ips.png"), p4, width = 9, height = 5.5, dpi = 150)
-      cat("  [+] Saved: plot_top_ips.png\n")
+      plots[[length(plots) + 1L]] <- p4
     }
     
     # 5. Methods
@@ -129,22 +124,71 @@ generate_all_plots <- function(analysis_res, plot_dir) {
         ) +
         theme_minimal(base_size = 11) +
         theme(plot.title = element_text(face = "bold", size = 13))
-      ggsave(file.path(plot_dir, "plot_http_methods.png"), p5, width = 7, height = 5, dpi = 150)
-      cat("  [+] Saved: plot_http_methods.png\n")
+      plots[[length(plots) + 1L]] <- p5
+    }
+
+    if (length(plots) > 0) {
+      if (requireNamespace("gridExtra", quietly = TRUE)) {
+        gridExtra::grid.arrange(grobs = plots, ncol = 2)
+      } else {
+        warning(
+          "gridExtra is not installed; displaying plots individually. ",
+          "Install it with install.packages('gridExtra') for grid view."
+        )
+        lapply(plots, print)
+      }
     }
     
   } else {
-    cat("ggplot2 not available. Using base R graphics ...\n")
-    png(file.path(plot_dir, "plot_top_urls.png"), width = 800, height = 500)
+    cat("ggplot2 not available. Displaying base R graphics in a grid ...\n")
+    old_par <- par(mfrow = c(1, 2))
+    on.exit(par(old_par), add = TRUE)
     top_urls <- analysis_res$top_urls
     barplot(rev(top_urls$Requests), names.arg = rev(top_urls$URL), horiz = TRUE, 
             las = 1, col = "steelblue", main = "Top 10 Most Requested URLs")
-    dev.off()
     
-    png(file.path(plot_dir, "plot_status_codes.png"), width = 800, height = 500)
     status_df <- analysis_res$status_summary
     barplot(status_df$Requests, names.arg = status_df$Status_Code, 
             col = "darkorange", main = "HTTP Status Code Distribution")
-    dev.off()
   }
+}
+
+load_exported_analysis <- function(output_dir) {
+  required_files <- c(
+    "top_10_urls.csv",
+    "status_distribution.csv",
+    "hourly_traffic.csv",
+    "top_10_ips.csv",
+    "http_methods.csv"
+  )
+
+  missing_files <- required_files[!file.exists(file.path(output_dir, required_files))]
+  if (length(missing_files) > 0) {
+    stop(
+      "Cannot generate plots. Missing analysis files in ", output_dir, ": ",
+      paste(missing_files, collapse = ", ")
+    )
+  }
+
+  list(
+    top_urls = read.csv(file.path(output_dir, "top_10_urls.csv"), stringsAsFactors = FALSE),
+    status_summary = read.csv(file.path(output_dir, "status_distribution.csv"), stringsAsFactors = FALSE),
+    hourly = read.csv(file.path(output_dir, "hourly_traffic.csv"), stringsAsFactors = FALSE),
+    top_ips = read.csv(file.path(output_dir, "top_10_ips.csv"), stringsAsFactors = FALSE),
+    methods = read.csv(file.path(output_dir, "http_methods.csv"), stringsAsFactors = FALSE)
+  )
+}
+
+if (sys.nframe() == 0) {
+  args <- commandArgs(trailingOnly = FALSE)
+  file_arg <- grep("^--file=", args, value = TRUE)[1]
+  script_path <- sub("^--file=", "", file_arg)
+  script_dir <- dirname(normalizePath(script_path, mustWork = TRUE))
+  project_dir <- normalizePath(file.path(script_dir, ".."), mustWork = TRUE)
+  output_dir <- normalizePath(file.path(project_dir, "..", "analysis_outputs"), mustWork = TRUE)
+
+  cat("Loading analysis tables from: ", output_dir, "\n", sep = "")
+  standalone_analysis <- load_exported_analysis(output_dir)
+  generate_all_plots(standalone_analysis, output_dir)
+  cat("Charts displayed in the active R graphics device.\n")
 }

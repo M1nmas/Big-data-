@@ -9,8 +9,11 @@ find_output_dir <- function() {
   candidates <- c(
     file.path("..", "output"),
     file.path("output"),
+    file.path("..", "analysis_outputs"),
     file.path("website-log-mapreduce", "output"),
+    file.path("analysis_outputs"),
     file.path(getwd(), "website-log-mapreduce", "output"),
+    file.path(getwd(), "..", "analysis_outputs"),
     file.path(getwd(), "output")
   )
   for (cand in candidates) {
